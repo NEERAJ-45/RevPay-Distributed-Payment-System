@@ -12,11 +12,11 @@ This document outlines the step-by-step implementation plan for Phase 2 of the M
   - **Purpose**: Return mapped `LedgerEntry` objects to the client.
   - **Fields**: Match relevant fields from `LedgerEntry` entity (id, walletId, transactionId, type, amount, balanceAfter, note, createdAt).
 
-## 2. Repositories
+## 2. Entity & Repositories
+- **Update `Wallet.java`**:
+  - Add `@Version` field to safely update balances during concurrent transfers using Optimistic Locking.
 - **Update `WalletRepository.java`**:
-  - Add a pessimistic lock query to safely update balances during concurrent transfers.
-  - **Method**: `Optional<Wallet> findByUpiIdForUpdate(String upiId);`
-  - **Annotation**: `@Lock(LockModeType.PESSIMISTIC_WRITE)` and `@Query("SELECT w FROM Wallet w WHERE w.upiId = :upiId")`.
+  - No custom locking query needed; rely on standard `findByUpiId` and JPA optimistic locking.
 
 ## 3. Service Layer (`WalletService.java`)
 Replace the `UnsupportedOperationException` placeholders with actual implementations:
@@ -39,7 +39,7 @@ Replace the `UnsupportedOperationException` placeholders with actual implementat
   - Return updated `WalletResponse`.
 
 - **`transfer(TransferRequest req)`**:
-  - **Sender Lock**: Fetch sender wallet using `findByUpiIdForUpdate(req.getFromUpiId())`.
+  - **Sender Fetch**: Fetch sender wallet using `walletRepository.findByUpiId(req.getFromUpiId())` (Optimistic locking handles concurrent updates).
   - **Balance Check**: Throw `InsufficientFundsException` if sender balance < `req.getAmount()`.
   - **Debit**: Subtract amount from sender. Create a `DEBIT` `LedgerEntry`.
   - **Receiver Fetch**: Fetch receiver wallet using `walletRepository.findByUpiId(req.getToUpiId())`. (Optional: lock receiver if needed, but sender is strictly needed to prevent overdrafts).

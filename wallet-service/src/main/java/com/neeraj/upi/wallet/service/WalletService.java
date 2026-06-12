@@ -50,7 +50,7 @@ public class WalletService {
     @Transactional
     public void transfer(TransferRequest req) {
         // TODO:
-        // 1. Find sender wallet by fromUpiId (lock for update)
+        // 1. Find sender wallet by fromUpiId (optimistic locking will handle concurrency)
         // 2. Check sender.balance >= req.amount, else throw InsufficientFundsException
         // 3. Debit sender: balance -= amount, save LedgerEntry(DEBIT)
         // 4. Find receiver wallet by toUpiId

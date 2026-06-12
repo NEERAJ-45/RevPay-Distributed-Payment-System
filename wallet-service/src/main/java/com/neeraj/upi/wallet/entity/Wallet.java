@@ -45,4 +45,7 @@ public class Wallet {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @Version
+    private Long version;
 }
