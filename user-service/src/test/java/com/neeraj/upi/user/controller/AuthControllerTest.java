@@ -15,7 +15,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,37 +36,45 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setValidator(validator)
                 .build();
         objectMapper = new ObjectMapper();
     }
 
     @Test
-    @DisplayName("POST /auth/register should return 500 until implemented")
-    void registerEndpoint_throwsNotImplemented() throws Exception {
+    @DisplayName("POST /auth/register should return 201 for valid payload")
+    void registerEndpoint_returns201ForValidPayload() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setFullName("John Doe");
         req.setPhone("9876543210");
         req.setPin("1234");
+        
+        when(userService.register(any())).thenReturn(null);
 
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isCreated());
     }
 
     @Test
-    @DisplayName("POST /auth/login should return 500 until implemented")
-    void loginEndpoint_throwsNotImplemented() throws Exception {
+    @DisplayName("POST /auth/login should return 200 for valid payload")
+    void loginEndpoint_returns200ForValidPayload() throws Exception {
         LoginRequest req = new LoginRequest();
         req.setPhone("9876543210");
         req.setPin("1234");
+        
+        when(userService.login(any())).thenReturn(null);
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -74,7 +85,7 @@ class AuthControllerTest {
         req.setPhone("123");  // @Pattern violation
         req.setPin("");       // @NotBlank violation
 
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest());
@@ -87,7 +98,7 @@ class AuthControllerTest {
         req.setPhone("");     // @NotBlank violation
         req.setPin("");       // @NotBlank violation
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest());
