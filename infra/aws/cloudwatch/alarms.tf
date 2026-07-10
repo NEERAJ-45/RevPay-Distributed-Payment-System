@@ -5,22 +5,6 @@
 # All alarms → single SNS topic → email notification
 # ════════════════════════════════════════════════════════════════════
 
-# TODO: Reference the SNS topic created in ../sns/alerts-topic.tf
-# data "aws_sns_topic" "alerts" {
-#   name = "revpay-alerts"
-# }
-
-variable "sns_topic_arn" {
-  description = "ARN of the revpay-alerts SNS topic"
-  type        = string
-}
-
-variable "alb_arn_suffix" {
-  description = "ARN suffix of the RevPay ALB (for ALB metric alarms)"
-  type        = string
-  default     = ""
-}
-
 # ═══════════════════════════════════════════════════════════════════
 # SEV1 — CRITICAL (drop everything)
 # ═══════════════════════════════════════════════════════════════════
@@ -76,11 +60,10 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_targets" {
   alarm_actions       = [var.sns_topic_arn]
   ok_actions          = [var.sns_topic_arn]
 
-  # TODO: Add dimensions for specific target group
-  # dimensions = {
-  #   LoadBalancer = var.alb_arn_suffix
-  #   TargetGroup  = aws_lb_target_group.api_gateway.arn_suffix
-  # }
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = var.alb_arn_suffix != "" ? var.alb_arn_suffix : ""
+  }
 
   tags = { Severity = "SEV1", Service = "alb" }
 }

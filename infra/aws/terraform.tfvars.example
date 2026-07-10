@@ -1,0 +1,8 @@
+aws_region     = "us-east-1"
+environment    = "dev"
+ec2_key_name   = "revpay-key"   # Create this in AWS first
+rds_password   = "your-secure-password-here"
+redis_password = "your-redis-password-here"
+jwt_secret     = "your-256-bit-jwt-secret-min-length-32-chars"
+alert_email    = "you@example.com"
+domain_name    = "api.revpay.example.com"   # Optional for HTTPS

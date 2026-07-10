@@ -5,13 +5,6 @@
 # Free Tier: 1,000 email notifications/month
 # ════════════════════════════════════════════════════════════════════
 
-variable "alert_email" {
-  description = "Email address to receive alarm notifications"
-  type        = string
-  # TODO: Set this to your actual email
-  # default = "your-email@gmail.com"
-}
-
 # ── SNS Topic ─────────────────────────────────────────────────────
 
 resource "aws_sns_topic" "revpay_alerts" {

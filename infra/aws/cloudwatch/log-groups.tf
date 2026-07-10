@@ -5,17 +5,6 @@
 # Logs shipped via: CloudWatch Agent installed on EC2 host
 # ════════════════════════════════════════════════════════════════════
 
-# TODO: Configure AWS provider with region and credentials
-# provider "aws" {
-#   region = var.aws_region
-# }
-
-variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  default     = "dev"
-}
-
 # ── Log Groups ────────────────────────────────────────────────────
 
 # One log group per microservice.
@@ -104,4 +93,4 @@ resource "aws_cloudwatch_log_group" "ec2_host" {
 #   - Transaction-service stays at INFO (audit requirement)
 #   - All others at WARN unless actively debugging
 #
-# TODO: Set up a CloudWatch billing alarm BEFORE enabling log shipping
+# IMPORTANT: Set up a CloudWatch billing alarm BEFORE enabling log shipping to avoid unexpected costs

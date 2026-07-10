@@ -6,28 +6,6 @@
 # Free Tier: 750 hours + 15 LCUs/month (12 months from account creation)
 # ════════════════════════════════════════════════════════════════════
 
-variable "vpc_id" {
-  description = "VPC ID where ALB and EC2 instances live"
-  type        = string
-}
-
-variable "public_subnet_ids" {
-  description = "List of public subnet IDs (at least 2 AZs required for ALB)"
-  type        = list(string)
-}
-
-variable "ec2_instance_ids" {
-  description = "List of EC2 instance IDs running the API Gateway containers"
-  type        = list(string)
-  default     = []
-}
-
-variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS (see acm.tf)"
-  type        = string
-  default     = ""   # TODO: Set after creating ACM cert
-}
-
 # ── ALB ───────────────────────────────────────────────────────────
 
 resource "aws_lb" "revpay" {
@@ -81,31 +59,30 @@ resource "aws_lb_target_group" "api_gateway" {
 # ── Target Registration ───────────────────────────────────────────
 # Register EC2 instances running the API Gateway Docker container
 
-# TODO: Uncomment when you have EC2 instances running
-# resource "aws_lb_target_group_attachment" "gateway_instance" {
-#   count            = length(var.ec2_instance_ids)
-#   target_group_arn = aws_lb_target_group.api_gateway.arn
-#   target_id        = var.ec2_instance_ids[count.index]
-#   port             = 8080
-# }
+resource "aws_lb_target_group_attachment" "gateway_instance" {
+  count            = length(var.ec2_instance_ids)
+  target_group_arn = aws_lb_target_group.api_gateway.arn
+  target_id        = var.ec2_instance_ids[count.index]
+  port             = 8080
+}
 
 # ── HTTPS Listener (port 443) ─────────────────────────────────────
 # SSL termination happens here. ACM certificate is free.
 # Traffic from ALB → EC2 is plain HTTP (inside VPC = secure).
 
-# TODO: Uncomment after creating ACM certificate
-# resource "aws_lb_listener" "https" {
-#   load_balancer_arn = aws_lb.revpay.arn
-#   port              = 443
-#   protocol          = "HTTPS"
-#   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-#   certificate_arn   = var.certificate_arn
-#
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.api_gateway.arn
-#   }
-# }
+resource "aws_lb_listener" "https" {
+  count             = var.certificate_arn != "" ? 1 : 0
+  load_balancer_arn = aws_lb.revpay.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api_gateway.arn
+  }
+}
 
 # ── HTTP Listener (port 80) → Redirect to HTTPS ──────────────────
 

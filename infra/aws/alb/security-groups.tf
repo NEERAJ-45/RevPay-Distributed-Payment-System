@@ -8,12 +8,23 @@
 # Allows internet traffic IN on 80/443
 # Allows ALB to reach EC2 instances on 8080
 
+variable "vpc_cidr" {
+  description = "VPC CIDR block for restricting egress traffic"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "ssh_allowed_cidr" {
+  description = "CIDR block allowed for SSH access (restrict to your IP in production)"
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
 resource "aws_security_group" "alb" {
   name        = "revpay-alb-sg"
   description = "Security group for RevPay ALB"
   vpc_id      = var.vpc_id
 
-  # Inbound: Allow HTTP from anywhere
   ingress {
     description = "HTTP from internet"
     from_port   = 80
@@ -22,7 +33,6 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Inbound: Allow HTTPS from anywhere
   ingress {
     description = "HTTPS from internet"
     from_port   = 443
@@ -31,13 +41,12 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Outbound: Allow ALB to reach EC2 instances on service ports
   egress {
     description = "To EC2 instances (API Gateway)"
     from_port   = 8080
     to_port     = 8084
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]   # TODO: Restrict to VPC CIDR
+    cidr_blocks = [var.vpc_cidr]
   }
 
   tags = {
@@ -73,13 +82,12 @@ resource "aws_security_group" "ec2_services" {
     security_groups = [aws_security_group.alb.id]
   }
 
-  # Inbound: SSH for debugging (restrict to your IP in production)
   ingress {
     description = "SSH access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]   # TODO: Restrict to your IP
+    cidr_blocks = [var.ssh_allowed_cidr]
   }
 
   # Outbound: Allow all (services need to reach internet, RDS, etc.)
