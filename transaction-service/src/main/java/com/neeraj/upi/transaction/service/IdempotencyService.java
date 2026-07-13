@@ -32,21 +32,12 @@ public class IdempotencyService {
     @Value("${idempotency.ttl-seconds:86400}")
     private long ttlSeconds;
 
-    /**
-     * Checks if the given requestId has already been processed.
-     * @return Optional containing the stored txnId if it exists, empty otherwise.
-     */
     public Optional<String> getExistingResult(String requestId) {
-        // TODO: redisTemplate.opsForValue().get(KEY_PREFIX + requestId)
-        throw new UnsupportedOperationException("Not implemented yet");
+        String value = redisTemplate.opsForValue().get(KEY_PREFIX + requestId);
+        return Optional.ofNullable(value);
     }
 
-    /**
-     * Stores the result of a processed payment in Redis.
-     * Key = "idempotency:{requestId}", Value = txnId, TTL = 24h
-     */
     public void storeResult(String requestId, String txnId) {
-        // TODO: redisTemplate.opsForValue().set(KEY_PREFIX + requestId, txnId, Duration.ofSeconds(ttlSeconds))
-        throw new UnsupportedOperationException("Not implemented yet");
+        redisTemplate.opsForValue().set(KEY_PREFIX + requestId, txnId, Duration.ofSeconds(ttlSeconds));
     }
 }

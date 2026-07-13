@@ -1,0 +1,190 @@
+### ════════════════════════════════════════════════════════
+###  COMPLETE END-TO-END FLOW
+###  Run this file sequentially to simulate a full user journey
+### ════════════════════════════════════════════════════════
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 1: Registration — Alice & Bob sign up
+### ─────────────────────────────────────────────────────────
+
+# 1.1 Alice registers
+# @name regAlice
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Alice Sharma",
+  "phone": "9876543210",
+  "pin": "1234"
+}
+
+### ── Extract Alice's token manually from response ──
+@aliceToken = {{regAlice.response.body.data.token}}
+@aliceUpiId = {{regAlice.response.body.data.upiId}}
+
+# 1.2 Bob registers
+# @name regBob
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Bob Singh",
+  "phone": "9876543211",
+  "pin": "5678"
+}
+
+### ── Extract Bob's token manually from response ──
+@bobToken = {{regBob.response.body.data.token}}
+@bobUpiId = {{regBob.response.body.data.upiId}}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 2: Add Money — Both users top up their wallets
+### ─────────────────────────────────────────────────────────
+
+# 2.1 Alice adds ₹5,000
+POST http://localhost:8080/wallet/add-money/{{aliceUpiId}}
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "note": "Salary credit"
+}
+
+# 2.2 Bob adds ₹2,000
+POST http://localhost:8080/wallet/add-money/{{bobUpiId}}
+Authorization: Bearer {{bobToken}}
+Content-Type: application/json
+
+{
+  "amount": 2000,
+  "note": "Freelance payment"
+}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 3: Check Balances
+### ─────────────────────────────────────────────────────────
+
+# 3.1 Alice's balance should be ₹5,000
+GET http://localhost:8080/wallet/balance/{{aliceUpiId}}
+Authorization: Bearer {{aliceToken}}
+
+# 3.2 Bob's balance should be ₹2,000
+GET http://localhost:8080/wallet/balance/{{bobUpiId}}
+Authorization: Bearer {{bobToken}}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 4: Make a Payment — Alice sends ₹200 to Bob
+### ─────────────────────────────────────────────────────────
+
+# 4.1 First attempt (should return 201 CREATED)
+# @name pay1
+POST http://localhost:8080/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000001",
+  "toUpiId": "{{bobUpiId}}",
+  "amount": 200,
+  "note": "Lunch"
+}
+
+@txnId1 = {{pay1.response.body.data.txnId}}
+
+# 4.2 Same requestId again (should return 200 OK with replayed=true)
+POST http://localhost:8080/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000001",
+  "toUpiId": "{{bobUpiId}}",
+  "amount": 99999,
+  "note": "This amount should be IGNORED — idempotent"
+}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 5: Verify Results
+### ─────────────────────────────────────────────────────────
+
+# 5.1 Check transaction status
+GET http://localhost:8080/transactions/{{txnId1}}
+Authorization: Bearer {{aliceToken}}
+
+# 5.2 Alice's balance should be ₹4,800 (5000 - 200)
+GET http://localhost:8080/wallet/balance/{{aliceUpiId}}
+Authorization: Bearer {{aliceToken}}
+
+# 5.3 Bob's balance should be ₹2,200 (2000 + 200)
+GET http://localhost:8080/wallet/balance/{{bobUpiId}}
+Authorization: Bearer {{bobToken}}
+
+# 5.4 Alice's transaction history
+GET http://localhost:8080/transactions/history/{{aliceUpiId}}?page=0&size=20
+Authorization: Bearer {{aliceToken}}
+
+# 5.5 Alice's wallet ledger
+GET http://localhost:8080/wallet/ledger/{{aliceUpiId}}?page=0&size=20
+Authorization: Bearer {{aliceToken}}
+
+# 5.6 Bob's wallet ledger (should show CREDIT entry)
+GET http://localhost:8080/wallet/ledger/{{bobUpiId}}?page=0&size=20
+Authorization: Bearer {{bobToken}}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 6: Edge Cases
+### ─────────────────────────────────────────────────────────
+
+# 6.1 Alice sends ₹50,001 — exceeds per-txn cap (should fail)
+POST http://localhost:8080/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000099",
+  "toUpiId": "{{bobUpiId}}",
+  "amount": 50001,
+  "note": "Over the limit"
+}
+
+# 6.2 Alice tries self-payment (should fail)
+POST http://localhost:8080/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000098",
+  "toUpiId": "{{aliceUpiId}}",
+  "amount": 100,
+  "note": "Can't pay self"
+}
+
+# 6.3 Alice tries to send more than her daily limit
+POST http://localhost:8080/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000097",
+  "toUpiId": "{{bobUpiId}}",
+  "amount": 10000,
+  "note": "Daily limit test"
+}
+
+### ─────────────────────────────────────────────────────────
+###  PHASE 7: Unauthorized Access Tests
+### ─────────────────────────────────────────────────────────
+
+# 7.1 Payment without auth (should return 401)
+POST http://localhost:8080/transactions/pay
+Content-Type: application/json
+
+{
+  "requestId": "10000000-0000-0000-0000-000000000096",
+  "toUpiId": "{{bobUpiId}}",
+  "amount": 100
+}
+
+# 7.2 Profile without auth (should return 401)
+GET http://localhost:8080/users/me

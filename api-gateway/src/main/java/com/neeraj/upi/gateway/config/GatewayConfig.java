@@ -21,8 +21,8 @@ public class GatewayConfig {
      */
     @Bean
     public KeyResolver ipKeyResolver() {
-        // TODO: return exchange -> Mono.just(exchange.getRequest().getRemoteAddress().getHostString())
-        // Fallback to "unknown" if remoteAddress is null
-        return exchange -> Mono.just("default-key"); // placeholder — replace with IP resolver
+        return exchange -> Mono.justOrEmpty(exchange.getRequest().getRemoteAddress())
+                .map(addr -> addr.getHostString())
+                .defaultIfEmpty("unknown");
     }
 }

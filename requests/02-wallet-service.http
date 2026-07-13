@@ -1,0 +1,95 @@
+### ─────────────────────────────────────────────────────────
+###  WALLET SERVICE — Balance, Add Money, Ledger
+### Base URL: http://localhost:8082 (direct) or http://localhost:8080 (via Gateway)
+### ─────────────────────────────────────────────────────────
+
+@baseUrl = http://localhost:8082
+@gatewayUrl = http://localhost:8080
+
+### ── Replace these with tokens from 01-user-service.http ──
+@aliceToken = <PASTE_ALICE_JWT_HERE>
+@bobToken = <PASTE_BOB_JWT_HERE>
+
+### ─────────────────────────────────────────────────────────
+### 2.1 Get Alice's Wallet Balance
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/balance/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 2.2 Get Bob's Wallet Balance
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/balance/bob@miniupi
+Authorization: Bearer {{bobToken}}
+
+### ─────────────────────────────────────────────────────────
+### 2.3 Add ₹5000 to Alice's Wallet
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/wallet/add-money/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "note": "Monthly salary deposit"
+}
+
+### ─────────────────────────────────────────────────────────
+### 2.4 Add ₹3000 to Bob's Wallet
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/wallet/add-money/bob@miniupi
+Authorization: Bearer {{bobToken}}
+Content-Type: application/json
+
+{
+  "amount": 3000,
+  "note": "Freelance payment"
+}
+
+### ─────────────────────────────────────────────────────────
+### 2.5 Add ₹100 to Alice's Wallet (add small amount)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/wallet/add-money/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "amount": 100,
+  "note": "Cashback reward"
+}
+
+### ─────────────────────────────────────────────────────────
+### 2.6 Check Balance After Add-Money
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/balance/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 2.7 Get Alice's Ledger (Transaction History)
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/ledger/alice@miniupi?page=0&size=20
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 2.8 Get Bob's Ledger
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/ledger/bob@miniupi?page=0&size=20
+Authorization: Bearer {{bobToken}}
+
+### ─────────────────────────────────────────────────────────
+### 2.9 Try to Add Money with Invalid Amount (should fail 400)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/wallet/add-money/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "amount": -500,
+  "note": "Invalid negative amount"
+}
+
+### ─────────────────────────────────────────────────────────
+### 2.10 Check Balance of Non-Existent User (should fail 404)
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/wallet/balance/nonexistent@upi
+Authorization: Bearer {{aliceToken}}

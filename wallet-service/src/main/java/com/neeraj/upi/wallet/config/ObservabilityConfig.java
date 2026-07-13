@@ -1,18 +1,23 @@
 package com.neeraj.upi.wallet.config;
 
+import io.micrometer.core.aop.TimedAspect;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Observability, Metrics and Tracing Configuration for Wallet Service.
- * Configures application-specific Prometheus meters and tracing aspects.
- */
 @Configuration
 @Slf4j
 public class ObservabilityConfig {
 
-    // TODO:
-    //  1. Define counters for wallet creation, money top-ups, and debit/credit actions.
-    //  2. Configure a MeterFilter to avoid recording JVM metrics to save Prometheus memory.
-    //  3. Register TimedAspect to track balance lookup and transfer latency under @Timed.
+    @Bean
+    public MeterRegistryCustomizer<MeterRegistry> metricsCommonTags() {
+        return registry -> registry.config().commonTags("service", "wallet-service", "env", "local");
+    }
+
+    @Bean
+    public TimedAspect timedAspect(MeterRegistry meterRegistry) {
+        return new TimedAspect(meterRegistry);
+    }
 }

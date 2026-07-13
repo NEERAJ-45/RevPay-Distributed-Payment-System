@@ -1,0 +1,93 @@
+### ─────────────────────────────────────────────────────────
+###  API GATEWAY — All Routes via Single Entry Point
+### Base URL: http://localhost:8080
+### ─────────────────────────────────────────────────────────
+
+@gatewayUrl = http://localhost:8080
+@aliceToken = <PASTE_ALICE_JWT_HERE>
+
+### ─────────────────────────────────────────────────────────
+### 4.1 Register via Gateway
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Gateway Test User",
+  "phone": "9988776655",
+  "pin": "4321"
+}
+
+### ─────────────────────────────────────────────────────────
+### 4.2 Login via Gateway
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "phone": "9988776655",
+  "pin": "4321"
+}
+
+### ─────────────────────────────────────────────────────────
+### 4.3 Get Profile via Gateway (routed to user-service)
+### ─────────────────────────────────────────────────────────
+GET {{gatewayUrl}}/users/me
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 4.4 Get Balance via Gateway (routed to wallet-service)
+### ─────────────────────────────────────────────────────────
+GET {{gatewayUrl}}/wallet/balance/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 4.5 Add Money via Gateway
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/wallet/add-money/alice@miniupi
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "amount": 1000,
+  "note": "Via Gateway"
+}
+
+### ─────────────────────────────────────────────────────────
+### 4.6 Make Payment via Gateway
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "660e8400-e29b-41d4-a716-446655440001",
+  "toUpiId": "bob@miniupi",
+  "amount": 100,
+  "note": "Payment via Gateway"
+}
+
+### ─────────────────────────────────────────────────────────
+### 4.7 Get Transaction History via Gateway
+### ─────────────────────────────────────────────────────────
+GET {{gatewayUrl}}/transactions/history/alice@miniupi?page=0&size=20
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 4.8 Try Accessing Internal Endpoint via Gateway (should be BLOCKED)
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/wallet/internal/transfer
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "00000000-0000-0000-0000-000000000000",
+  "fromUpiId": "alice@miniupi",
+  "toUpiId": "bob@miniupi",
+  "amount": 100
+}
+
+### ─────────────────────────────────────────────────────────
+### 4.9 Gateway Health Check
+### ─────────────────────────────────────────────────────────
+GET {{gatewayUrl}}/actuator/health

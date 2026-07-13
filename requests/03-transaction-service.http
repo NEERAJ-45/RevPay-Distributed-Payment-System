@@ -1,0 +1,156 @@
+### ─────────────────────────────────────────────────────────
+###  TRANSACTION SERVICE — Payments, History, Status
+### Base URL: http://localhost:8083 (direct) or http://localhost:8080 (via Gateway)
+### ─────────────────────────────────────────────────────────
+
+@baseUrl = http://localhost:8083
+@gatewayUrl = http://localhost:8080
+
+### ── Replace with actual tokens from registration ──
+@aliceToken = <PASTE_ALICE_JWT_HERE>
+@bobToken = <PASTE_BOB_JWT_HERE>
+
+### Each payment needs a UNIQUE requestId (UUID v4)
+@requestId1 = 550e8400-e29b-41d4-a716-446655440001
+@requestId2 = 550e8400-e29b-41d4-a716-446655440002
+@requestId3 = 550e8400-e29b-41d4-a716-446655440003
+@requestId4 = 550e8400-e29b-41d4-a716-446655440004
+
+### ─────────────────────────────────────────────────────────
+### 3.1 Alice sends ₹200 to Bob (Happy Path)
+### ─────────────────────────────────────────────────────────
+# @name pay1
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "{{requestId1}}",
+  "toUpiId": "bob@miniupi",
+  "amount": 200,
+  "note": "Lunch at Pind Balluchi"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.2 Idempotency Replay — Same requestId (should return 200, not 201)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "{{requestId1}}",
+  "toUpiId": "bob@miniupi",
+  "amount": 500,
+  "note": "This amount change should be IGNORED"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.3 Alice sends ₹150 to Charlie
+### ─────────────────────────────────────────────────────────
+# @name pay2
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "{{requestId2}}",
+  "toUpiId": "charlie@miniupi",
+  "amount": 150,
+  "note": "Movie tickets"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.4 Get Transaction Status by ID
+### ── Copy txnId from the response of 3.1 ──
+@txnId1 = <PASTE_TXN_ID_FROM_PAY1>
+GET {{baseUrl}}/transactions/{{txnId1}}
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 3.5 Get Alice's Transaction History
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/transactions/history/alice@miniupi?page=0&size=20
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 3.6 Get Bob's Transaction History (as receiver)
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/transactions/history/bob@miniupi?page=0&size=20
+Authorization: Bearer {{bobToken}}
+
+### ─────────────────────────────────────────────────────────
+### 3.7 Attempt Self-Payment (should fail with fraud check)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "{{requestId3}}",
+  "toUpiId": "alice@miniupi",
+  "amount": 100,
+  "note": "Trying to pay myself"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.8 Attempt Exceeding Daily Limit
+### ── Assuming limit is ₹10,000/day, Alice already sent 200+150=350 ──
+### ── Send ₹10,000 more → should cross the limit ──
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "{{requestId4}}",
+  "toUpiId": "bob@miniupi",
+  "amount": 10000,
+  "note": "This should exceed daily limit"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.9 Attempt Payment Without Auth (should fail 401)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/transactions/pay
+Content-Type: application/json
+
+{
+  "requestId": "550e8400-e29b-41d4-a716-446655440099",
+  "toUpiId": "bob@miniupi",
+  "amount": 100,
+  "note": "No auth header"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.10 Attempt Payment with Invalid JWT (should fail 401)
+### ─────────────────────────────────────────────────────────
+POST {{baseUrl}}/transactions/pay
+Authorization: Bearer invalid.jwt.token
+Content-Type: application/json
+
+{
+  "requestId": "550e8400-e29b-41d4-a716-446655440098",
+  "toUpiId": "bob@miniupi",
+  "amount": 100,
+  "note": "Bad token"
+}
+
+### ─────────────────────────────────────────────────────────
+### 3.11 Check Non-Existent Transaction (should fail 404)
+### ─────────────────────────────────────────────────────────
+GET {{baseUrl}}/transactions/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{aliceToken}}
+
+### ─────────────────────────────────────────────────────────
+### 3.12 Create Transaction via Gateway (same as 3.1 but through Gateway)
+### ─────────────────────────────────────────────────────────
+POST {{gatewayUrl}}/transactions/pay
+Authorization: Bearer {{aliceToken}}
+Content-Type: application/json
+
+{
+  "requestId": "550e8400-e29b-41d4-a716-446655440010",
+  "toUpiId": "bob@miniupi",
+  "amount": 50,
+  "note": "Via API Gateway"
+}

@@ -1,18 +1,23 @@
 package com.neeraj.upi.notification.config;
 
+import io.micrometer.core.aop.TimedAspect;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Observability, Metrics and Tracing Configuration for Notification Service.
- * Configures Kafka listener metrics and async trace span interceptors.
- */
 @Configuration
 @Slf4j
 public class ObservabilityConfig {
 
-    // TODO:
-    //  1. Define a counter to monitor total email and SMS alerts sent successfully or failed.
-    //  2. Register TimedAspect to track Kafka listener message consumption latency.
-    //  3. Configure tracing propagation for asynchronous Kafka listeners to seamlessly bind spans.
+    @Bean
+    public MeterRegistryCustomizer<MeterRegistry> metricsCommonTags() {
+        return registry -> registry.config().commonTags("service", "notification-service", "env", "local");
+    }
+
+    @Bean
+    public TimedAspect timedAspect(MeterRegistry meterRegistry) {
+        return new TimedAspect(meterRegistry);
+    }
 }

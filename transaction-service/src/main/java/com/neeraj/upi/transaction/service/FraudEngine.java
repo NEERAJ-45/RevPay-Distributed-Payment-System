@@ -32,20 +32,17 @@ public class FraudEngine {
     @Value("${fraud.max-per-txn:50000.00}")
     private BigDecimal maxPerTxn;
 
-    /**
-     * Runs all fraud checks. Throws FraudVelocityException on failure.
-     *
-     * @param senderUpiId  who is paying
-     * @param receiverUpiId who receives
-     * @param amount        payment amount
-     */
     public void validate(String senderUpiId, String receiverUpiId, BigDecimal amount) {
-        // TODO:
-        // 1. Check amount <= maxPerTxn, else throw FraudVelocityException("AMOUNT_EXCEEDS_LIMIT")
-        // 2. Check senderUpiId != receiverUpiId, else throw FraudVelocityException("SELF_PAYMENT")
-        // 3. Compute startOfDay = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant()
-        // 4. BigDecimal dailySent = transactionRepository.sumSuccessfulAmountSince(senderUpiId, startOfDay)
-        // 5. Check dailySent + amount <= dailyLimit, else throw FraudVelocityException("DAILY_LIMIT_EXCEEDED")
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (amount.compareTo(maxPerTxn) > 0) {
+            throw new FraudVelocityException("AMOUNT_EXCEEDS_LIMIT", "Amount ₹" + amount + " exceeds per-transaction limit of ₹" + maxPerTxn);
+        }
+        if (senderUpiId.equals(receiverUpiId)) {
+            throw new FraudVelocityException("SELF_PAYMENT", "Sender and receiver UPI ID must be different");
+        }
+        Instant startOfDay = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant();
+        BigDecimal dailySent = transactionRepository.sumSuccessfulAmountSince(senderUpiId, startOfDay);
+        if (dailySent.add(amount).compareTo(dailyLimit) > 0) {
+            throw new FraudVelocityException("DAILY_LIMIT_EXCEEDED", "Daily limit of ₹" + dailyLimit + " exceeded for " + senderUpiId);
+        }
     }
 }

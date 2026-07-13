@@ -18,14 +18,26 @@ public class TransactionEventPublisher {
 
     private final KafkaTemplate<String, TransactionCompletedEvent> kafkaTemplate;
 
-    /**
-     * Publishes a txn.completed (SUCCESS) or txn.failed event.
-     * Key = txnId (ordering per transaction).
-     */
     public void publish(TransactionCompletedEvent event) {
-        // TODO: determine topic from event.getStatus() ("SUCCESS" → TXN_COMPLETED, "FAILED" → TXN_FAILED)
-        //       kafkaTemplate.send(topic, event.getTxnId().toString(), event)
-        //       .whenComplete((result, ex) -> log success/failure)
-        throw new UnsupportedOperationException("Not implemented yet");
+        String topic = "SUCCESS".equals(event.getStatus()) ? KafkaTopics.TXN_COMPLETED : KafkaTopics.TXN_FAILED;
+        kafkaTemplate.send(topic, event.getTxnId().toString(), event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish event for txnId={}, topic={}: {}", event.getTxnId(), topic, ex.getMessage());
+                    } else {
+                        log.info("Published event for txnId={} to topic={}, offset={}", event.getTxnId(), topic, result.getRecordMetadata().offset());
+                    }
+                });
+    }
+
+    public void publishSync(TransactionCompletedEvent event) {
+        String topic = "SUCCESS".equals(event.getStatus()) ? KafkaTopics.TXN_COMPLETED : KafkaTopics.TXN_FAILED;
+        try {
+            var result = kafkaTemplate.send(topic, event.getTxnId().toString(), event).get();
+            log.info("Published event for txnId={} to topic={}, offset={}", event.getTxnId(), topic, result.getRecordMetadata().offset());
+        } catch (Exception e) {
+            log.error("Failed to publish event for txnId={}, topic={}: {}", event.getTxnId(), topic, e.getMessage());
+            throw new RuntimeException("Kafka publish failed for txnId=" + event.getTxnId(), e);
+        }
     }
 }

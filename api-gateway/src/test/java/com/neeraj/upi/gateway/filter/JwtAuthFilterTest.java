@@ -1,20 +1,25 @@
 package com.neeraj.upi.gateway.filter;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.web.reactive.server.WebTestClient;
 
-/**
- * Reactive Filter integration tests for JwtAuthFilter.
- */
-@SpringBootTest
+@WebFluxTest(controllers = JwtAuthFilter.class)
 public class JwtAuthFilterTest {
+
+    @Autowired
+    private WebTestClient webTestClient;
+
+    @MockBean
+    private JwtAuthFilter jwtAuthFilter;
 
     @Test
     public void testGatewayRoutingFilter() {
-        // TODO: Perform reactive filter testing using WebTestClient:
-        //       - Dispatch a mock HTTP request to a secured path (e.g. /wallet/balance) without Authorization header.
-        //       - Verify status code returned is 401 UNAUTHORIZED.
-        //       - Dispatch a mock HTTP request with a valid Authorization header.
-        //       - Verify the filter passes the request to the correct downstream routing rule.
+        webTestClient.get().uri("/wallet/balance/test")
+                .header("Authorization", "Bearer invalid-token")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 }

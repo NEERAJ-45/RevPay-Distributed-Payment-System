@@ -2,6 +2,7 @@ package com.neeraj.upi.wallet.controller;
 
 import com.neeraj.upi.common.dto.ApiResponse;
 import com.neeraj.upi.wallet.dto.AddMoneyRequest;
+import com.neeraj.upi.wallet.dto.LedgerResponse;
 import com.neeraj.upi.wallet.dto.TransferRequest;
 import com.neeraj.upi.wallet.dto.WalletResponse;
 import com.neeraj.upi.wallet.service.WalletService;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +25,7 @@ public class WalletController {
     @GetMapping("/balance/{upiId}")
     @Operation(summary = "Get wallet balance for a UPI ID")
     public ResponseEntity<ApiResponse<WalletResponse>> getBalance(@PathVariable String upiId) {
-        // TODO: return walletService.getBalance(upiId)
-        throw new UnsupportedOperationException("Not implemented yet");
+        return ResponseEntity.ok(ApiResponse.ok(walletService.getBalance(upiId)));
     }
 
     @PostMapping("/add-money/{upiId}")
@@ -32,28 +33,22 @@ public class WalletController {
     public ResponseEntity<ApiResponse<WalletResponse>> addMoney(
             @PathVariable String upiId,
             @Valid @RequestBody AddMoneyRequest request) {
-        // TODO: return walletService.addMoney(upiId, request)
-        throw new UnsupportedOperationException("Not implemented yet");
+        return ResponseEntity.ok(ApiResponse.ok(walletService.addMoney(upiId, request)));
     }
 
-    /**
-     * INTERNAL ONLY — not exposed via API Gateway.
-     * Called by transaction-service OpenFeign client.
-     */
     @PostMapping("/internal/transfer")
     @Operation(summary = "[INTERNAL] Atomic debit/credit between two wallets")
     public ResponseEntity<ApiResponse<Void>> transfer(@Valid @RequestBody TransferRequest request) {
-        // TODO: walletService.transfer(request), return 200 OK
-        throw new UnsupportedOperationException("Not implemented yet");
+        walletService.transfer(request);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @GetMapping("/ledger/{upiId}")
     @Operation(summary = "Get paginated ledger (transaction history) for a wallet")
-    public ResponseEntity<ApiResponse<?>> getLedger(
+    public ResponseEntity<ApiResponse<Page<LedgerResponse>>> getLedger(
             @PathVariable String upiId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        // TODO: return paginated LedgerEntry list mapped to LedgerResponse DTOs
-        throw new UnsupportedOperationException("Not implemented yet");
+        return ResponseEntity.ok(ApiResponse.ok(walletService.getLedger(upiId, page, size)));
     }
 }

@@ -1,6 +1,7 @@
 package com.neeraj.upi.transaction.feign;
 
 import com.neeraj.upi.common.dto.ApiResponse;
+import com.neeraj.upi.transaction.dto.TransferRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,5 @@ public interface WalletFeignClient {
 
     /** Trigger atomic debit+credit between two wallets */
     @PostMapping("/wallet/internal/transfer")
-    ApiResponse<Void> transfer(@RequestBody Object transferRequest);
-    // TODO: replace Object with the actual TransferRequest DTO once you wire the types
+    ApiResponse<Void> transfer(@RequestBody TransferRequest transferRequest);
 }

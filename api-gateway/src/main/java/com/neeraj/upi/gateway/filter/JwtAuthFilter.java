@@ -1,52 +1,63 @@
 package com.neeraj.upi.gateway.filter;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * Global JWT validation filter — runs BEFORE every route.
- *
- * Logic:
- *  - If the path is a PUBLIC endpoint (/auth/**) → skip validation, pass through.
- *  - Otherwise → extract "Authorization: Bearer <token>", validate JWT.
- *  - If invalid → return 401 Unauthorized immediately.
- *  - If valid   → forward request downstream.
- *
- * NOTE: This is a reactive (WebFlux) filter — do NOT use blocking calls here.
- */
 @Component
 @Slf4j
 public class JwtAuthFilter implements GlobalFilter, Ordered {
 
+    private static final List<String> PUBLIC_PATHS = List.of("/auth/", "/swagger-ui", "/v3/api-docs", "/swagger-ui.html");
+    private static final String BEARER_PREFIX = "Bearer ";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
+        if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
+            return chain.filter(exchange);
+        }
 
-        // TODO:
-        // 1. Check if path matches any PUBLIC_PATHS → if yes, chain.filter(exchange)
-        // 2. Extract Authorization header
-        // 3. If missing or doesn't start with "Bearer " → return 401
-        // 4. Validate token using JJWT (same logic as user-service JwtService)
-        // 5. If valid → chain.filter(exchange)
-        // 6. If invalid → exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED) + complete()
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
 
-        return chain.filter(exchange); // placeholder — remove when implementing
+        String token = authHeader.substring(BEARER_PREFIX.length());
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            exchange.getAttributes().put("userId", claims.getSubject());
+            exchange.getAttributes().put("upiId", claims.get("upiId", String.class));
+        } catch (Exception e) {
+            log.warn("JWT validation failed: {}", e.getMessage());
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
+
+        return chain.filter(exchange);
     }
 
     @Override
     public int getOrder() {
-        // Run before all other filters (lower number = higher priority)
         return -1;
     }
 }

@@ -8,13 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Listens to txn.completed and txn.failed events.
- * Sends debit alert to sender AND credit alert to receiver on success.
- * Sends failure alert to sender on failure.
- *
- * Note: Both topics share the same consumer group so each event is processed once.
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -27,14 +20,15 @@ public class TransactionEventListener {
         groupId = KafkaTopics.GROUP_NOTIFICATION
     )
     public void onTransactionEvent(TransactionCompletedEvent event) {
-        // TODO:
-        // if "SUCCESS":
-        //   notificationService.sendDebitAlert(senderPhone, event.getSenderUpiId(), event.getAmount(), txnId)
-        //   notificationService.sendCreditAlert(receiverPhone, event.getReceiverUpiId(), event.getAmount(), txnId)
-        // if "FAILED":
-        //   notificationService.sendFailureAlert(senderPhone, event.getAmount(), event.getFailureReason())
-        //
-        // Note: You may need to enrich the event with phone numbers, or call user-service for them
-        throw new UnsupportedOperationException("Not implemented yet");
+        String txnId = event.getTxnId().toString();
+        if ("SUCCESS".equals(event.getStatus())) {
+            log.info("Transaction SUCCESS: txnId={}, sender={}, receiver={}, amount={}",
+                    txnId, event.getSenderUpiId(), event.getReceiverUpiId(), event.getAmount());
+            notificationService.sendDebitAlert(event.getSenderUpiId(), event.getSenderUpiId(), event.getAmount(), txnId);
+            notificationService.sendCreditAlert(event.getReceiverUpiId(), event.getReceiverUpiId(), event.getAmount(), txnId);
+        } else {
+            log.warn("Transaction FAILED: txnId={}, reason={}", txnId, event.getFailureReason());
+            notificationService.sendFailureAlert(event.getSenderUpiId(), event.getAmount(), event.getFailureReason());
+        }
     }
 }
