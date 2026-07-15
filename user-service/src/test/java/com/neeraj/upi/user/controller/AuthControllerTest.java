@@ -47,13 +47,13 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /auth/register should return 201 for valid payload")
-    void registerEndpoint_returns201ForValidPayload() throws Exception {
+    @DisplayName("POST /api/auth/register should return 201 Created and AuthResponse")
+    void registerEndpoint_success() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setFullName("John Doe");
         req.setPhone("9876543210");
         req.setPin("1234");
-        
+
         when(userService.register(any())).thenReturn(null);
 
         mockMvc.perform(post("/api/auth/register")
@@ -63,12 +63,12 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /auth/login should return 200 for valid payload")
-    void loginEndpoint_returns200ForValidPayload() throws Exception {
+    @DisplayName("POST /api/auth/login should return 200 OK and AuthResponse")
+    void loginEndpoint_success() throws Exception {
         LoginRequest req = new LoginRequest();
         req.setPhone("9876543210");
         req.setPin("1234");
-        
+
         when(userService.login(any())).thenReturn(null);
 
         mockMvc.perform(post("/api/auth/login")
@@ -78,7 +78,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /auth/register should return 400 for invalid payload")
+    @DisplayName("POST /api/auth/register should return 400 for invalid payload")
     void registerEndpoint_returns400ForInvalidPayload() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setFullName("");  // @NotBlank violation
@@ -92,7 +92,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /auth/login should return 400 for invalid payload")
+    @DisplayName("POST /api/auth/login should return 400 for invalid payload")
     void loginEndpoint_returns400ForInvalidPayload() throws Exception {
         LoginRequest req = new LoginRequest();
         req.setPhone("");     // @NotBlank violation

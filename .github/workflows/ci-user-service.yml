@@ -108,10 +108,10 @@ jobs:
           cache-to:   type=gha,mode=max
 
   # ══════════════════════════════════════════════════════════════════
-  #  Job 3 — Deploy to Oracle Cloud VM (Health Gate + Auto-Rollback)
+  #  Job 3 — Deploy to AWS EC2 VM (Health Gate + Auto-Rollback)
   # ══════════════════════════════════════════════════════════════════
   deploy:
-    name: Deploy to Oracle Cloud VM
+    name: Deploy to AWS EC2 VM
     runs-on: ubuntu-latest
     needs: docker                 # ← gates on docker push passing
     environment: production       # ← optional manual approval gate in GitHub UI
@@ -120,9 +120,9 @@ jobs:
       - name: Deploy, health-check, and auto-rollback
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }}
-          key:      ${{ secrets.OCI_SSH_KEY }}
+          host:     ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key:      ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -euo pipefail
 
@@ -133,7 +133,7 @@ jobs:
             PORT="${{ env.SERVICE_PORT }}"
 
             echo "════════════════════════════════════════════════"
-            echo "▶ Deploying $NAME → $IMAGE:$SHA_TAG"
+            echo "▶ Deploying $NAME → $IMAGE:$SHA_TAG to AWS EC2"
             echo "════════════════════════════════════════════════"
 
             # ── 1. Pull new image ──────────────────────────────────
@@ -149,11 +149,14 @@ jobs:
 
             # ── 4. Start new container ────────────────────────────
             echo "▶ Starting $NAME on port $PORT"
+            # Restricted resources for AWS Free Tier (1GB RAM t2.micro)
             docker run -d \
               --name "$NAME" \
               --network upi-net \
               --restart unless-stopped \
               -p "$PORT:$PORT" \
+              -e JAVA_OPTS="-XX:MaxRAMPercentage=50.0 -XX:+UseContainerSupport -Xmx192m" \
+              --memory="256m" \
               --env-file /opt/revpay/.env \
               "$IMAGE:$SHA_TAG"
 
@@ -186,6 +189,8 @@ jobs:
                   --network upi-net \
                   --restart unless-stopped \
                   -p "$PORT:$PORT" \
+                  -e JAVA_OPTS="-XX:MaxRAMPercentage=50.0 -XX:+UseContainerSupport -Xmx192m" \
+                  --memory="256m" \
                   --env-file /opt/revpay/.env \
                   "$PREVIOUS_IMAGE"
                 echo "↩ Rollback complete — $NAME running previous image"
@@ -201,3 +206,92 @@ jobs:
             echo "════════════════════════════════════════════════"
             echo "✅ Deploy complete: $NAME → $IMAGE:$SHA_TAG"
             echo "════════════════════════════════════════════════"
+
+  # /*
+  # deploy_oci:
+  #   name: Deploy to Oracle Cloud VM
+  #   runs-on: ubuntu-latest
+  #   needs: docker
+  #   environment: production
+  #
+  #   steps:
+  #     - name: Deploy, health-check, and auto-rollback
+  #       uses: appleboy/ssh-action@v1.0.3
+  #       with:
+  #         host:     ${{ secrets.OCI_HOST }}
+  #         username: ${{ secrets.OCI_USER }}
+  #         key:      ${{ secrets.OCI_SSH_KEY }}
+  #         script: |
+  #           set -euo pipefail
+  #
+  #           IMAGE="${{ env.IMAGE }}"
+  #           SHA_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-7)"
+  #           NAME="${{ env.SERVICE_NAME }}"
+  #           PORT="${{ env.SERVICE_PORT }}"
+  #
+  #           echo "════════════════════════════════════════════════"
+  #           echo "▶ Deploying $NAME → $IMAGE:$SHA_TAG"
+  #           echo "════════════════════════════════════════════════"
+  #
+  #           docker pull "$IMAGE:$SHA_TAG"
+  #
+  #           PREVIOUS_IMAGE=$(docker inspect --format='{{.Config.Image}}' "$NAME" 2>/dev/null || echo "")
+  #           echo "  ↩ Previous image: ${PREVIOUS_IMAGE:-<none — first deploy>}"
+  #
+  #           docker stop "$NAME" 2>/dev/null || true
+  #           docker rm   "$NAME" 2>/dev/null || true
+  #
+  #           echo "▶ Starting $NAME on port $PORT"
+  #           docker run -d \
+  #             --name "$NAME" \
+  #             --network upi-net \
+  #             --restart unless-stopped \
+  #             -p "$PORT:$PORT" \
+  #             --env-file /opt/revpay/.env \
+  #             "$IMAGE:$SHA_TAG"
+  #
+  #           echo "▶ Waiting for /actuator/health to return UP..."
+  #           RETRIES=6
+  #           HEALTHY=false
+  #           for i in $(seq 1 $RETRIES); do
+  #             sleep 5
+  #             STATUS=$(docker exec "$NAME" \
+  #               wget -qO- "http://localhost:$PORT/actuator/health" 2>/dev/null \
+  #               | grep -o '"status":"UP"' || echo "")
+  #             if [ "$STATUS" = '"status":"UP"' ]; then
+  #               echo "✅ $NAME is healthy (attempt $i/$RETRIES)"
+  #               HEALTHY=true
+  #               break
+  #             fi
+  #             echo "  ⏳ Attempt $i/$RETRIES — not healthy yet"
+  #           done
+  #
+  #           if [ "$HEALTHY" = "false" ]; then
+  #             echo "❌ Health check FAILED — initiating rollback"
+  #             docker stop "$NAME" 2>/dev/null || true
+  #             docker rm   "$NAME" 2>/dev/null || true
+  #             if [ -n "$PREVIOUS_IMAGE" ]; then
+  #               echo "↩ Rolling back to $PREVIOUS_IMAGE"
+  #               docker run -d \
+  #                 --name "$NAME" \
+  #                 --network upi-net \
+  #                 --restart unless-stopped \
+  #                 -p "$PORT:$PORT" \
+  #                 --env-file /opt/revpay/.env \
+  #                 "$PREVIOUS_IMAGE"
+  #               echo "↩ Rollback complete"
+  #             else
+  #               echo "⚠ No previous image found — $NAME remains stopped"
+  #             fi
+  #             exit 1
+  #           fi
+  #
+  #           docker image prune -f --filter "until=72h" || true
+  #
+  #           echo "════════════════════════════════════════════════"
+  #           echo "✅ Deploy complete: $NAME → $IMAGE:$SHA_TAG"
+  #           echo "════════════════════════════════════════════════"
+  # */
+
+
+

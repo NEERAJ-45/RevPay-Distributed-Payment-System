@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,9 +28,15 @@ class UserEventPublisherTest {
     @Mock
     private KafkaTemplate<String, UserCreatedEvent> kafkaTemplate;
 
+    @Mock
+    private org.springframework.kafka.support.SendResult<String, UserCreatedEvent> sendResult;
+
+    @Mock
+    private org.apache.kafka.clients.producer.RecordMetadata recordMetadata;
+
     @Test
-    @DisplayName("publishUserCreated should send event to kafka")
-    void publishUserCreated_sendsEvent() {
+    @DisplayName("publishUserCreated publishes event successfully to Kafka")
+    void publishUserCreated_success() throws Exception {
         UserEventPublisher publisher = new UserEventPublisher(kafkaTemplate);
 
         UserCreatedEvent event = UserCreatedEvent.builder()
@@ -49,5 +56,27 @@ class UserEventPublisherTest {
         publisher.publishUserCreated(event);
 
         verify(kafkaTemplate).send(KafkaTopics.USER_CREATED, event.getUserId().toString(), event);
+    }
+
+    @Test
+    @DisplayName("publishUserCreated throws RuntimeException when Kafka send fails")
+    void publishUserCreated_kafkaFailure_throwsRuntimeException() {
+        UserEventPublisher publisher = new UserEventPublisher(kafkaTemplate);
+
+        UserCreatedEvent event = UserCreatedEvent.builder()
+                .userId(UUID.randomUUID())
+                .upiId("test@miniupi")
+                .fullName("Test")
+                .phone("9876543210")
+                .createdAt(Instant.now())
+                .build();
+
+        CompletableFuture<SendResult<String, UserCreatedEvent>> future = new CompletableFuture<>();
+        future.completeExceptionally(new java.util.concurrent.ExecutionException("Kafka error", new RuntimeException("Broker down")));
+
+        when(kafkaTemplate.send(eq(KafkaTopics.USER_CREATED), eq(event.getUserId().toString()), eq(event)))
+                .thenReturn(future);
+
+        assertThrows(RuntimeException.class, () -> publisher.publishUserCreated(event));
     }
 }
